@@ -86,7 +86,11 @@ if (PkgConfig_FOUND)
     pkg_check_modules_with_static (FREETYPE2 REQUIRED freetype2)
   endif()
 else()
-  find_package (Zlib REQUIRED)
+    set(ZLIB_ROOT "D:/TEST_ZLIB")
+    find_package(ZLIB REQUIRED)
+    message("ZLIB_FOUND = ${ZLIB_FOUND}")
+    message("ZLIB_INCLUDE_DIRS = ${ZLIB_INCLUDE_DIRS}")
+    message("ZLIB_LIBRARIES = ${ZLIB_LIBRARIES}")
 endif()
 
 target_include_directories(tsmuxer PRIVATE
