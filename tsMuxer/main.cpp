@@ -511,6 +511,34 @@ All parameters in this group started with two dashes:\n\
     LTRACE(LT_INFO, 2, help);
 }
 
+/*
+int main(int argc, char** argv)
+{
+    int main1(int argc, char** argv);
+
+    cout << "1) argc = " << argc << endl;
+    for (int i = 0; i < argc; i++)
+        cout << i+2 << ") argc = " << argv[i] << endl;
+    cout << endl;
+
+    int argc_new = argc;
+    //char** argv_new = argv;
+
+    argc_new = 2;
+    char** argv_new = new char* [argc_new];
+    argv_new[0] = argv[0];
+    argv_new[1] = "F:\\_Hashed\\_UHD\\Toy.Story.4.2019.ULTRAHD.Blu-ray.2160p.HEVC.TrueHD.Atmos.7.1-xxx\\BDMV\\PLAYLIST\\00004.mpls";
+    for (int i = 0; i < argc_new; i++)
+        cout << i+1 << ") argv_new[" << i << "] = " << argv_new[i] << endl;
+    cout << endl;
+
+    main1(argc_new, argv_new);
+	//main1(argc, argv);
+
+    delete[] argv_new;
+}
+*/
+
 int main(int argc, char** argv)
 {	
 	LTRACE(LT_INFO, 2, "tsMuxeR version " << APP_VERSION << ". github.com/justdan96/tsMuxer");

@@ -15,6 +15,14 @@
 
 using namespace std;
 
+#ifdef DEBUG
+#define DCERR(x) std::cerr << x
+#define DCOUT(x) std::cout << x
+#else
+#define DCERR(x)
+#define DCOUT(x)
+#endif
+
 enum SubPathType
 {
     SUBPATH_PIP = 7
@@ -1590,7 +1598,10 @@ void MPLSParser::parsePlayList(uint8_t* buffer, int len) {
 	int number_of_PlayItems = reader.getBits(16);//16 uimsbf
 	number_of_SubPaths = reader.getBits(16); //16 uimsbf
 	for (int PlayItem_id=0; PlayItem_id<number_of_PlayItems; PlayItem_id++) {
+        //DCOUT("PL" << PlayItem_id << ": " << reader.getBitsLeft() << endl);
 		parsePlayItem(reader, PlayItem_id);
+        //if (PlayItem_id >= 1)
+        //    break;
 	}
 	for (int SubPath_id=0; SubPath_id<number_of_SubPaths; SubPath_id++) {
 		//SubPath(); // not implemented now
@@ -1600,6 +1611,7 @@ void MPLSParser::parsePlayList(uint8_t* buffer, int len) {
     int toPassBits = length * 8 - (startBits - endBits);
     if (toPassBits > 0) {
         reader.skipBits(toPassBits);
+        //DCOUT("\t\t\t\t" << toPassBits / 8  << " Reserved Bytes found. " << endl);
     }
 }
 
@@ -2104,6 +2116,8 @@ void MPLSParser::parsePlayItem(BitStreamReader& reader, int PlayItem_id)
 	newItem.connection_condition = reader.getBits(4); //4 bslbf
 	ref_to_STC_id = reader.getBits(8);//8 uimsbf
 	
+    //DCOUT("IN_time start: " << reader.getBitsLeft() << endl);
+
 	newItem.IN_time = reader.getBits(32);//32 uimsbf
 	newItem.OUT_time = reader.getBits(32); //32 uimsbf
 	m_playItems.push_back(newItem);
@@ -2117,6 +2131,8 @@ void MPLSParser::parsePlayItem(BitStreamReader& reader, int PlayItem_id)
 	} else {
 		reader.skipBits(16); //reserved_for_future_use 16 bslbf
 	}
+    //DCOUT("\tstill mode ends at: " << reader.getBitsLeft() << endl);
+
 	if (is_multi_angle == 1) {
 		number_of_angles = reader.getBits(8); // uimsbf
 		reader.skipBits(6); //reserved_for_future_use 6 bslbf
@@ -2130,12 +2146,15 @@ void MPLSParser::parsePlayItem(BitStreamReader& reader, int PlayItem_id)
 			ref_to_STC_id = reader.getBits(8); // 8 uimsbf
 		}
 	}
+    //DCOUT("\tBF STN: " << reader.getBitsLeft() << endl);
 	STN_table(reader, PlayItem_id);
+    //DCOUT("\tAF STN: " << reader.getBitsLeft() << endl);
 
     int endBits = reader.getBitsLeft();
     int toPassBits = length * 8 - (startBits - endBits);
     if (toPassBits > 0) {
         reader.skipBits(toPassBits);
+        //DCOUT("\t\t\t\t" << toPassBits / 8  << " Reserved Bytes found. " << endl);
     }
 }
 
@@ -2436,15 +2455,45 @@ void MPLSParser::STN_table(BitStreamReader& reader, int PlayItem_id)
 	reader.skipBits(32); //reserved_for_future_use 40 bslbf
 	reader.skipBits(8);
 
+    //DCOUT("\t\tprimary_video_stream starts at: " << reader.getBitsLeft() << endl);
+    //DCOUT("\t\t\tnumber_of_primary_video_stream_entries = " << number_of_primary_video_stream_entries << endl);
 	for (int primary_video_stream_id=0; primary_video_stream_id< number_of_primary_video_stream_entries; primary_video_stream_id++) 
 	{
+        //DCOUT("\t\t\t " << primary_video_stream_id << " parseStreamEntry starts at: " << reader.getBitsLeft() << endl);
+		MPLSStreamInfo streamInfo;
+		streamInfo.parseStreamEntry(reader);
+        //DCOUT("\t\t\t " << primary_video_stream_id << " parseStreamAttributes starts at: " << reader.getBitsLeft() << endl);
+        streamInfo.parseStreamAttributes(reader);
+        if (PlayItem_id == 0)
+            m_streamInfo.push_back(streamInfo);
+        //DCOUT("\t\t\t parseStreamAttributes ends at: " << reader.getBitsLeft() << endl);
+    }
+
+    //DCOUT("\t\tprimary_audio_stream starts at: " << reader.getBitsLeft() << endl);
+    //DCOUT("\t\t\tnumber_of_primary_audio_stream_entries = " << number_of_primary_audio_stream_entries << endl);
+    for (int primary_audio_stream_id=0; primary_audio_stream_id < number_of_primary_audio_stream_entries; primary_audio_stream_id++)
+	{
+		MPLSStreamInfo streamInfo;
+        //DCOUT("\t\t\tparseStreamEntry starts at: " << reader.getBitsLeft() << endl);
+        streamInfo.parseStreamEntry(reader);
+        //DCOUT("\t\t\tparseStreamAttributes starts at: " << reader.getBitsLeft() << endl);
+        streamInfo.parseStreamAttributes(reader);
+        if (PlayItem_id == 0)
+            m_streamInfo.push_back(streamInfo);
+        //DCOUT("\t\t\tparseStreamAttributes ends at: " << reader.getBitsLeft() << endl);
+    }
+
+    //DCOUT("\t\t PrimaryPGStreamEntries starts at: " << reader.getBitsLeft() << endl);
+    for (int PG_textST_stream_id=0; PG_textST_stream_id<number_of_PG_textST_stream_entries+number_of_PiP_PG_textST_stream_entries_plus;PG_textST_stream_id++)
+	{
 		MPLSStreamInfo streamInfo;
 		streamInfo.parseStreamEntry(reader);
 		streamInfo.parseStreamAttributes(reader);
         if (PlayItem_id == 0)
             m_streamInfo.push_back(streamInfo);
 	}
-	for (int primary_audio_stream_id=0; primary_audio_stream_id < number_of_primary_audio_stream_entries; primary_audio_stream_id++) 
+    //DCOUT("\t\tIG_stream_id starts at: " << reader.getBitsLeft() << endl);
+    for (int IG_stream_id=0; IG_stream_id<number_of_IG_stream_entries; IG_stream_id++)
 	{
 		MPLSStreamInfo streamInfo;
 		streamInfo.parseStreamEntry(reader);
@@ -2453,24 +2502,8 @@ void MPLSParser::STN_table(BitStreamReader& reader, int PlayItem_id)
             m_streamInfo.push_back(streamInfo);
 	}
 
-	for (int PG_textST_stream_id=0; PG_textST_stream_id<number_of_PG_textST_stream_entries+number_of_PiP_PG_textST_stream_entries_plus;PG_textST_stream_id++) 
-	{
-		MPLSStreamInfo streamInfo;
-		streamInfo.parseStreamEntry(reader);
-		streamInfo.parseStreamAttributes(reader);
-        if (PlayItem_id == 0)
-            m_streamInfo.push_back(streamInfo);
-	}
-	for (int IG_stream_id=0; IG_stream_id<number_of_IG_stream_entries; IG_stream_id++) 
-	{
-		MPLSStreamInfo streamInfo;
-		streamInfo.parseStreamEntry(reader);
-		streamInfo.parseStreamAttributes(reader);
-        if (PlayItem_id == 0)
-            m_streamInfo.push_back(streamInfo);
-	}
-
-	for (int secondary_audio_stream_id=0; secondary_audio_stream_id < number_of_secondary_audio_stream_entries; secondary_audio_stream_id++) 
+    //DCOUT("\t\tsecondary_audio_stream starts at: " << reader.getBitsLeft() << endl);
+    for (int secondary_audio_stream_id=0; secondary_audio_stream_id < number_of_secondary_audio_stream_entries; secondary_audio_stream_id++)
 	{
 		MPLSStreamInfo streamInfo;
         streamInfo.isSecondary = true;
@@ -2491,6 +2524,8 @@ void MPLSParser::STN_table(BitStreamReader& reader, int PlayItem_id)
 		}
 	//}
 	}
+
+    //DCOUT("\t\tsecondary_video_stream starts at: " << reader.getBitsLeft() << endl);
 	for (int secondary_video_stream_id=0; secondary_video_stream_id < number_of_secondary_video_stream_entries; secondary_video_stream_id++) 
 	{
 		MPLSStreamInfo streamInfo;
@@ -2529,6 +2564,7 @@ void MPLSParser::STN_table(BitStreamReader& reader, int PlayItem_id)
     int toPassBits = length * 8 - (startBits - endBits);
     if (toPassBits > 0) {
         reader.skipBits(toPassBits);
+        //DCOUT("\t\t\t" << toPassBits / 8  << " Reserved Bytes found. " << endl);
     }
 }
 
@@ -2732,6 +2768,7 @@ void MPLSStreamInfo::parseStreamEntry(BitStreamReader& reader)
     int toPassBits = length * 8 - (startBits - endBits);
     if (toPassBits > 0) {
         reader.skipBits(toPassBits);
+        //DCOUT("\t\t\t\t" << toPassBits / 8  << " Reserved Bytes found. " << endl);
     }
 }
 
@@ -2781,41 +2818,50 @@ void MPLSStreamInfo::composeStreamEntry(BitStreamWriter& writer, int entryNum, i
 
 void MPLSStreamInfo::parseStreamAttributes(BitStreamReader& reader) 
 {
-	int length = reader.getBits(8); // 8 uimsbf
+    //DCOUT("\t\t\t\tparseStreamAttributes starts at: " << reader.getBitsLeft() << endl);
+    int length = reader.getBits(8); // 8 uimsbf
     int startBits = reader.getBitsLeft();
 	
-	stream_coding_type = reader.getBits(8); //8 bslbf
-	if (isVideoStreamType(stream_coding_type))
+    stream_coding_type = reader.getBits(8); //8 bslbf
+    //DCOUT("\t\t\t\t length = " << length << endl);
+    //DCOUT("\t\t\t\t stream_coding_type = 0x" << hex << stream_coding_type << dec <<endl);
+    if (isVideoStreamType(stream_coding_type))
 	{
-		video_format = reader.getBits(4); //4 bslbf
+        //DCOUT("\t\t\t\tvideo_format starts at: " << reader.getBitsLeft() << endl);
+        video_format = reader.getBits(4); //4 bslbf
 		frame_rate_index = reader.getBits(4); // 4 bslbf
-		reader.skipBits(24); //reserved_for_future_use 24 bslbf
+        //DCOUT("\t\t\t\tskipBits starts at: " << reader.getBitsLeft() << endl);
+        reader.skipBits(24); //reserved_for_future_use 24 bslbf
+        //DCOUT("\t\t\t\rskipBits ends at: " << reader.getBitsLeft() << endl);
 	} else if (isAudioStreamType(stream_coding_type))
 	{
-		audio_presentation_type = reader.getBits(4); //4 bslbf
+        //DCOUT("\t\t\t\taudio_presentation_type starts at: " << reader.getBitsLeft() << endl);
+        audio_presentation_type = reader.getBits(4); //4 bslbf
 		int sampling_frequency_index = reader.getBits(4); // 4 bslbf
 		CLPIStreamInfo::readString(language_code,reader,3);
 	} else if (stream_coding_type==0x90) 
 	{
-		// Presentation Graphics stream
+        //DCOUT("\t\t\t\tCLPIStreamInfo starts at: " << reader.getBitsLeft() << endl);
+        // Presentation Graphics stream
 		CLPIStreamInfo::readString(language_code, reader, 3);
-		reader.skipBits(8); //reserved_for_future_use 8 bslbf
+        reader.skipBits(8); //reserved_for_future_use 8 bslbf
 	} else if (stream_coding_type==0x91) {
 		// Interactive Graphics stream
 		CLPIStreamInfo::readString(language_code, reader, 3);
-		reader.skipBits(8); //reserved_for_future_use 8 bslbf
+        reader.skipBits(8); //reserved_for_future_use 8 bslbf
 	} else if (stream_coding_type==0x92) {
 		// Text subtitle stream
 		character_code = reader.getBits(8); //8 bslbf
 		CLPIStreamInfo::readString(language_code, reader, 3);
     } else {
-        cout << "\t\t\t\tUnknown type!" << endl;
+        //DCOUT("\t\t\t\tUnknown stream_coding_type: " << hex << stream_coding_type << dec << endl);
     }
 
     int endBits = reader.getBitsLeft();
     int toPassBits = length * 8 - (startBits - endBits);
     if (toPassBits > 0) {
         reader.skipBits(toPassBits);
+        //DCOUT("\t\t\t\t" << toPassBits / 8  << " Reserved Bytes found. " << endl);
     }
 }
 
