@@ -15,6 +15,11 @@ else()
   endif()
 endif()
 
+OPTION(DEFINE_DEBUG "Debug Mode" OFF) # Enabled by default
+IF(DEFINE_DEBUG)
+    ADD_DEFINITIONS(-DDEBUG)
+ENDIF(DEFINE_DEBUG)
+
 add_subdirectory (libmediation)
 add_subdirectory (tsMuxer)
 if(TSMUXER_GUI)
